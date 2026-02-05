@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Tickets - Sistema POS</title>
+    <link rel="stylesheet" href="css/tickets.css">
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>📋 Gestión de Tickets</h1>
+            <div class="header-buttons">
+                <button class="btn-back" onclick="window.location.href='index.html'">
+                    ← Volver al POS
+                </button>
+                <button class="btn-admin" onclick="showAdminLogin()">
+                    ⚙️ Administrar Productos
+                </button>
+            </div>
+        </header>
+
+        <!-- Filters -->
+        <div class="filters-panel">
+            <div class="filter-group">
+                <label for="filter-mesero">Filtrar por Mesero:</label>
+                <select id="filter-mesero">
+                    <option value="">Todos los meseros</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="filter-estado">Estado:</label>
+                <select id="filter-estado">
+                    <option value="activo">Activos</option>
+                    <option value="pagado">Pagados</option>
+                    <option value="todos">Todos</option>
+                </select>
+            </div>
+
+            <button class="btn-refresh" onclick="loadTickets()">
+                🔄 Actualizar
+            </button>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Tickets Activos -->
+            <div class="tickets-section">
+                <h2>Tickets Activos</h2>
+                <div id="tickets-container" class="tickets-grid">
+                    <!-- Tickets will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Reportes -->
+            <div class="reports-section">
+                <h2>Reportes del Día</h2>
+                <div class="report-card">
+                    <div class="report-item">
+                        <span class="report-label">Total Ventas:</span>
+                        <span class="report-value" id="total-ventas">$0.00</span>
+                    </div>
+                    <div class="report-item">
+                        <span class="report-label">Tickets Pagados:</span>
+                        <span class="report-value" id="total-tickets">0</span>
+                    </div>
+                    <div class="report-item">
+                        <span class="report-label">Ticket Promedio:</span>
+                        <span class="report-value" id="ticket-promedio">$0.00</span>
+                    </div>
+                </div>
+
+                <h3>Ventas por Mesero</h3>
+                <div id="ventas-mesero" class="ventas-list">
+                    <!-- Ventas por mesero -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de Detalles del Ticket -->
+        <div id="details-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Detalles del Ticket</h2>
+                    <button class="modal-close" onclick="closeDetails()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="ticket-details"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeDetails()">Cerrar</button>
+                    <button class="btn btn-success" id="btn-marcar-pagado" onclick="marcarComoPagado()">
+                        ✓ Marcar como Pagado
+                    </button>
+                </div>
+            </div>
+        </div>
+        <!-- Modal Admin PIN -->
+        <div id="admin-pin-modal" class="modal">
+            <div class="modal-content small-modal">
+                <div class="modal-header">
+                    <h2>🔐 Acceso Administrativo</h2>
+                    <button class="modal-close" onclick="closeAdminLogin()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p>Ingresa el PIN de administrador para continuar:</p>
+                    <input type="password" id="admin-pin-input" class="pin-input" maxlength="4" placeholder="****"
+                        autocomplete="off" autofocus>
+                    <p id="admin-error-message" class="error-message" style="display: none;">PIN incorrecto</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeAdminLogin()">Cancelar</button>
+                    <button class="btn btn-primary" onclick="verifyAdminPin()">Entrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/tickets.js"></script>
+    <script src="js/inactivity.js"></script>
+</body>
+
+</html>

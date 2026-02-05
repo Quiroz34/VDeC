@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administración - Sistema POS</title>
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1 id="restaurant-name-display">🌮 Sistema POS</h1>
+            <button class="btn-back" onclick="window.location.href='index.html'">
+                ← Volver al POS
+            </button>
+        </header>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="productos">🍽️ Productos</button>
+            <button class="tab-btn" data-tab="bebidas">🥤 Bebidas</button>
+            <button class="tab-btn" data-tab="extras">🍟 Extras</button>
+            <button class="tab-btn" data-tab="meseros">👤 Meseros</button>
+            <button class="tab-btn" data-tab="stats">📊 Estadísticas</button>
+            <button class="tab-btn" data-tab="settings">🛠️ Configuración</button>
+        </div>
+
+        <!-- Add Form -->
+        <div class="add-form">
+            <h2 id="form-title">Agregar Producto</h2>
+            <form id="product-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="nombre">Nombre:</label>
+                        <input type="text" id="nombre" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="precio">Precio:</label>
+                        <input type="number" id="precio" step="0.01" min="0" required>
+                    </div>
+                </div>
+
+                <div class="form-row" id="descripcion-group">
+                    <div class="form-group">
+                        <label for="descripcion">Descripción:</label>
+                        <input type="text" id="descripcion">
+                    </div>
+                </div>
+
+                <div class="form-row" id="tamano-group" style="display: none;">
+                    <div class="form-group">
+                        <label for="tamano">Tamaño:</label>
+                        <input type="text" id="tamano">
+                    </div>
+                </div>
+
+                <div class="form-row" id="pin-group" style="display: none;">
+                    <div class="form-group">
+                        <label for="pin">PIN (4 dígitos):</label>
+                        <input type="text" id="pin" maxlength="4" pattern="[0-9]{4}" placeholder="1234">
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-add">➕ Agregar</button>
+                    <button type="button" id="btn-cancel" class="btn btn-secondary" style="display: none;">✖
+                        Cancelar</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Products List -->
+        <div class="products-section">
+            <h2 id="list-title">Listado de Productos</h2>
+            <div class="products-table" id="products-table">
+                <!-- Products will be loaded here -->
+            </div>
+
+            <!-- Statistics Section (Initially Hidden) -->
+            <div id="stats-section" style="display: none;">
+                <div class="stats-grid">
+                    <div class="chart-container">
+                        <h3>Ventas Últimos 7 Días</h3>
+                        <canvas id="salesChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Top Tacos</h3>
+                        <canvas id="tacosChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Top Bebidas</h3>
+                        <canvas id="bebidasChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Top Extras</h3>
+                        <canvas id="extrasChart"></canvas>
+                    </div>
+                    <div class="chart-container col-span-2">
+                        <h3>Rendimiento Meseros</h3>
+                        <canvas id="waiterChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Section (Initially Hidden) -->
+        <div id="settings-section" style="display: none;">
+            <div class="settings-form">
+                <h3>Personalización del Ticket y Seguridad</h3>
+                <div class="form-group">
+                    <label for="setting-admin-pin">PIN de Administrador (Actual: ****):</label>
+                    <input type="text" id="setting-admin-pin" class="full-width" maxlength="4" pattern="[0-9]{4}"
+                        placeholder="Nuevo PIN (4 dígitos)">
+                </div>
+                <div class="form-group">
+                    <label for="setting-name">Nombre del Restaurante:</label>
+                    <input type="text" id="setting-name" class="full-width">
+                </div>
+                <div class="form-group">
+                    <label for="setting-address">Dirección / Ubicación:</label>
+                    <input type="text" id="setting-address" class="full-width">
+                </div>
+                <div class="form-group">
+                    <label for="setting-message">Mensaje de Agradecimiento:</label>
+                    <textarea id="setting-message" rows="3" class="full-width"></textarea>
+                </div>
+                <div class="form-group checkbox-group">
+                    <input type="checkbox" id="setting-tip">
+                    <label for="setting-tip">Habilitar línea de propina en el ticket</label>
+                </div>
+                <div class="settings-actions">
+                    <button class="btn btn-primary" onclick="saveSettings()">💾 Guardar Configuración</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Inactividad -->
+    <div id="inactivity-modal" class="modal"
+        style="display: none; justify-content: center; align-items: center; z-index: 10000; background: rgba(0,0,0,0.85); position: fixed; top: 0; left: 0; width: 100%; height: 100%;">
+        <div class="modal-content"
+            style="max-width: 450px; text-align: center; border: 2px solid #F59E0B; background: #1e293b; border-radius: 16px; overflow: hidden;">
+            <div class="modal-header" style="justify-content: center; background: #F59E0B; padding: 20px;">
+                <h2 style="color: #000; font-weight: bold; margin: 0;">⚠️ ¿Sigues ahí?</h2>
+            </div>
+            <div class="modal-body" style="padding: 30px;">
+                <p style="font-size: 1.2rem; margin-bottom: 20px; color: #fff;">Tu sesión se cerrará automáticamente.
+                </p>
+                <div id="inactivity-countdown"
+                    style="font-size: 3.5rem; font-weight: 800; color: #F59E0B; margin-bottom: 20px; font-variant-numeric: tabular-nums;">
+                    60</div>
+                <p style="color: #94a3b8;">segundos restantes</p>
+            </div>
+            <div class="modal-footer" style="justify-content: center; gap: 15px; padding-bottom: 20px; display: flex;">
+                <button class="btn btn-secondary" onclick="window.logoutNow()"
+                    style="min-width: 120px; padding: 10px; cursor: pointer; border-radius: 6px; border: 1px solid #475569; background: transparent; color: white;">Cerrar
+                    Sesión</button>
+                <button class="btn btn-primary" onclick="window.stayActive()"
+                    style="min-width: 120px; padding: 10px; cursor: pointer; border-radius: 6px; border: none; background: #F59E0B; color: #000; font-weight: bold;">Continuar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="js/admin.js"></script>
+    <script src="js/inactivity.js"></script>
+</body>
+
+</html>

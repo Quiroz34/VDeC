@@ -1,0 +1,38 @@
+# .gitignore para Sistema POS
+
+# Dependencias
+node_modules/
+package-lock.json
+yarn.lock
+
+# Base de datos
+*.db
+*.db-journal
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Archivos de IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Distribución
+dist/
+build/
+out/
+
+# Temporal
+tmp/
+temp/
+*.tmp
