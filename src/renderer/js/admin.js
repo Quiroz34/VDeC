@@ -1,11 +1,13 @@
 // Estado de la aplicación
-let currentTab = 'productos';
+let currentTab = 'daily-tickets';
 let productos = [];
 let bebidas = [];
 let extras = [];
 let meseros = [];
+let administradores = [];
 let editingId = null;
 let charts = {}; // Store chart instances
+let refreshInterval = null; // Auto-refresh for daily tickets
 
 // Inicializar aplicación
 document.addEventListener('DOMContentLoaded', async () => {
@@ -16,8 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     await loadData();
-    await loadSettings();
-    showTab('productos'); // Assuming showTab is a new or existing function to handle tab display
+    showTab('daily-tickets'); // Default tab
     setupEventListeners();
 });
 
@@ -30,9 +31,10 @@ async function loadData() {
         bebidas = await window.api.getBebidas();
         extras = await window.api.getExtras();
         meseros = await window.api.getMeseros();
+        administradores = await window.api.getAdministradores(); // Nuevo w/ IPC
     } catch (error) {
         console.error('Error al cargar datos:', error);
-        alert('Error al cargar los datos de la base de datos');
+        showNotification('Error al cargar los datos de la base de datos', 'error');
     }
 }
 
@@ -69,45 +71,29 @@ function setupEventListeners() {
     }
 }
 
-// ... (Rest of code)
-
-// Guardar configuración
-async function saveSettings() {
-    const newSettings = {
-        restaurantName: document.getElementById('setting-name').value.trim(),
-        address: document.getElementById('setting-address').value.trim(),
-        thankYouMessage: document.getElementById('setting-message').value.trim(),
-        enableTip: document.getElementById('setting-tip').checked
-    };
-
-    const newPin = document.getElementById('setting-admin-pin').value.trim();
-
-    if (!newSettings.restaurantName) {
-        alert('El nombre del restaurante es obligatorio');
-        return;
-    }
-
+// Cargar configuración
+async function loadSettings() {
     try {
-        await window.api.updateSettings(newSettings);
+        const settings = await window.api.getSettings();
+        if (settings) {
+            const nameEl = document.getElementById('setting-name');
+            const addressEl = document.getElementById('setting-address');
+            const messageEl = document.getElementById('setting-message');
+            const tipEl = document.getElementById('setting-tip');
 
-        // Update PIN if provided
-        if (newPin) {
-            if (newPin.length !== 4 || !/^\d+$/.test(newPin)) {
-                alert('El PIN debe ser de 4 dígitos numéricos');
-                return;
-            }
-            await window.api.updateAdminPin(newPin);
-        }
-
-        alert('Configuración guardada correctamente');
-        if (newPin) {
-            document.getElementById('setting-admin-pin').value = ''; // Clear for security
+            if (nameEl) nameEl.value = settings.restaurantName || '';
+            if (addressEl) addressEl.value = settings.address || '';
+            if (messageEl) messageEl.value = settings.thankYouMessage || '';
+            if (tipEl) tipEl.checked = settings.enableTip !== false;
         }
     } catch (error) {
-        console.error('Error al guardar configuración:', error);
-        alert('Error al guardar la configuración');
+        console.error('Error al cargar configuración:', error);
+        // Don't show error notification on page load, only log it
     }
 }
+
+// ... (Rest of code)
+
 
 // Función para cambiar de pestaña
 function showTab(tabId) {
@@ -117,6 +103,26 @@ function showTab(tabId) {
     });
 
     currentTab = tabId;
+
+    // Clear any existing refresh interval
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+    }
+
+    // Load data specific to the tab
+    if (tabId === 'settings') {
+        loadSettings();
+    } else if (tabId === 'daily-tickets') {
+        loadDailyTickets();
+        // Auto-refresh every 10 seconds
+        refreshInterval = setInterval(() => {
+            if (currentTab === 'daily-tickets') {
+                loadDailyTickets();
+            }
+        }, 10000);
+    }
+
     renderProducts();
     updateFormFields();
 }
@@ -156,7 +162,30 @@ async function loadAndRenderStats() {
                     pointRadius: 4
                 }]
             },
-            options: { responsive: true, plugins: { legend: { display: false } }, maintainAspectRatio: false }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                return 'Ventas: $' + context.parsed.y.toFixed(2);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function (value) {
+                                return '$' + value.toFixed(0);
+                            }
+                        }
+                    }
+                }
+            }
         });
 
         // 2. Top Tacos (Bar)
@@ -178,6 +207,16 @@ async function loadAndRenderStats() {
                 plugins: {
                     legend: { display: false },
                     title: { display: false }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            stepSize: 1,
+                            callback: function (value) {
+                                return Number.isInteger(value) ? value : '';
+                            }
+                        }
+                    }
                 }
             }
         });
@@ -201,6 +240,16 @@ async function loadAndRenderStats() {
                 plugins: {
                     legend: { display: false },
                     title: { display: false }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            stepSize: 1,
+                            callback: function (value) {
+                                return Number.isInteger(value) ? value : '';
+                            }
+                        }
+                    }
                 }
             }
         });
@@ -224,6 +273,16 @@ async function loadAndRenderStats() {
                 plugins: {
                     legend: { display: false },
                     title: { display: false }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            stepSize: 1,
+                            callback: function (value) {
+                                return Number.isInteger(value) ? value : '';
+                            }
+                        }
+                    }
                 }
             }
         });
@@ -245,7 +304,24 @@ async function loadAndRenderStats() {
                 maintainAspectRatio: false,
                 plugins: {
                     legend: { display: false },
-                    title: { display: true, text: 'Rendimiento por Mesero' }
+                    title: { display: true, text: 'Rendimiento por Mesero' },
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                return 'Total: $' + context.parsed.y.toFixed(2);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function (value) {
+                                return '$' + value.toFixed(0);
+                            }
+                        }
+                    }
                 }
             }
         });
@@ -267,6 +343,7 @@ function updateFormFields() {
     // Sections
     const productsSection = document.getElementById('products-table');
     const statsSection = document.getElementById('stats-section');
+    const dailyTicketsSection = document.getElementById('daily-tickets-section');
     const addForm = document.querySelector('.add-form');
 
     // Default visibility
@@ -276,6 +353,7 @@ function updateFormFields() {
 
     productsSection.style.display = 'grid'; // or block based on css
     statsSection.style.display = 'none';
+    dailyTicketsSection.style.display = 'none';
     addForm.style.display = 'block';
 
     if (currentTab === 'stats') {
@@ -293,12 +371,24 @@ function updateFormFields() {
         addForm.style.display = 'none';
         productsSection.style.display = 'none';
         statsSection.style.display = 'none';
+        dailyTicketsSection.style.display = 'none';
         document.getElementById('settings-section').style.display = 'block';
         loadSettings();
+        return;
+    } else if (currentTab === 'daily-tickets') {
+        formTitle.textContent = 'Tickets del Día';
+        listTitle.style.display = 'none';
+        addForm.style.display = 'none';
+        productsSection.style.display = 'none';
+        statsSection.style.display = 'none';
+        document.getElementById('settings-section').style.display = 'none';
+        dailyTicketsSection.style.display = 'block';
+        loadDailyTickets();
         return;
     } else {
         listTitle.style.display = 'block';
         document.getElementById('settings-section').style.display = 'none';
+        dailyTicketsSection.style.display = 'none';
     }
 
     switch (currentTab) {
@@ -332,6 +422,15 @@ function updateFormFields() {
             precioGroup.style.display = 'none';
             inputPrecio.required = false; // Disable required for waiters
             break;
+        case 'administradores':
+            formTitle.textContent = 'Agregar Nuevo Administrador';
+            listTitle.textContent = 'Lista de Administradores';
+            descripcionGroup.style.display = 'none';
+            tamanoGroup.style.display = 'none';
+            pinGroup.style.display = 'block';
+            precioGroup.style.display = 'none';
+            inputPrecio.required = false;
+            break;
     }
 }
 
@@ -347,12 +446,12 @@ async function handleSubmit(e) {
         precio = parseFloat(precioVal);
 
         if (!nombre || precioVal === '' || isNaN(precio)) {
-            alert('Por favor completa todos los campos requeridos');
+            showNotification('Por favor completa todos los campos requeridos', 'error');
             return;
         }
     } else {
         if (!nombre) {
-            alert('Por favor ingresa el nombre del mesero');
+            showNotification('Por favor ingresa el nombre del mesero', 'error');
             return;
         }
     }
@@ -381,7 +480,7 @@ async function handleSubmit(e) {
                     meseros = await window.api.getMeseros();
                     break;
             }
-            alert('Elemento actualizado correctamente');
+            showNotification('Elemento actualizado correctamente', 'success');
         } else {
             // Crear nuevo
             switch (currentTab) {
@@ -405,7 +504,7 @@ async function handleSubmit(e) {
                     meseros = await window.api.getMeseros();
                     break;
             }
-            alert('Elemento agregado correctamente');
+            showNotification('Elemento agregado correctamente', 'success');
         }
 
         // Limpiar formulario y resetear estado
@@ -415,7 +514,7 @@ async function handleSubmit(e) {
         renderProducts();
     } catch (error) {
         console.error('Error al guardar:', error);
-        alert('Error al guardar el elemento');
+        showNotification('Error al guardar el elemento', 'error');
     }
 }
 
@@ -438,9 +537,12 @@ function renderProducts() {
         case 'meseros':
             items = meseros;
             break;
+        case 'administradores':
+            items = administradores;
+            break;
     }
 
-    if (items.length === 0) {
+    if (!items || items.length === 0) {
         container.innerHTML = '<p class="empty-message">No hay productos registrados</p>';
         return;
     }
@@ -466,59 +568,29 @@ function createProductRow(item) {
     } else if (currentTab === 'meseros') {
         details = `<p>PIN: <strong>****</strong></p>`; // Ocultar PIN por seguridad
         priceDisplay = ''; // No mostrar precio para meseros
+    } else if (currentTab === 'administradores') {
+        const principalBadge = item.esPrincipal ? '<span class="badge badge-success" style="font-size: 0.7rem; margin-left: 5px;">Principal</span>' : '';
+        details = `<p>PIN: <strong>****</strong></p>`;
+        priceDisplay = principalBadge;
     }
 
     div.innerHTML = `
-    <div class="product-info">
-      <h3>${item.nombre}</h3>
-      ${details}
-      <div class="product-price">${priceDisplay}</div>
-    </div>
-    <div class="product-actions">
-      <button class="btn-edit" onclick="editItem(${item.id})">✏️ Editar</button>
-      <button class="btn-delete" onclick="deleteProduct(${item.id})">🗑️ Eliminar</button>
-    </div>
-  `;
+<div class="product-info">
+<h3>${item.nombre}</h3>
+${details}
+<div class="product-price">${priceDisplay}</div>
+</div>
+<div class="product-actions">
+<button class="btn-edit" onclick="editProduct(${item.id})">✏️ Editar</button>
+<button class="btn-delete" onclick="deleteProduct(${item.id})">🗑️ Eliminar</button>
+</div>
+`;
 
     return div;
 }
 
-// Eliminar producto
-async function deleteProduct(id) {
-    if (!confirm('¿Estás seguro de eliminar este elemento?')) {
-        return;
-    }
-
-    try {
-        switch (currentTab) {
-            case 'productos':
-                await window.api.deleteProducto(id);
-                productos = await window.api.getProductos();
-                break;
-            case 'bebidas':
-                await window.api.deleteBebida(id);
-                bebidas = await window.api.getBebidas();
-                break;
-            case 'extras':
-                await window.api.deleteExtra(id);
-                extras = await window.api.getExtras();
-                break;
-            case 'meseros':
-                await window.api.deleteMesero(id);
-                meseros = await window.api.getMeseros();
-                break;
-        }
-
-        renderProducts();
-        alert('Elemento eliminado correctamente');
-    } catch (error) {
-        console.error('Error al eliminar:', error);
-        alert('Error al eliminar el elemento');
-    }
-}
-
-// Editar elemento
-function editItem(id) {
+// Editar producto
+function editProduct(id) {
     let item;
     switch (currentTab) {
         case 'productos':
@@ -552,11 +624,14 @@ function editItem(id) {
         document.getElementById('tamano').value = item.tamano || '';
     } else if (currentTab === 'meseros') {
         document.getElementById('pin').value = item.pin || '';
+    } else if (currentTab === 'administradores') {
+        document.getElementById('pin').value = ''; // Always clear PIN for admins when editing, require re-entry or leave blank to keep
+        document.getElementById('pin').placeholder = 'Dejar vacío para mantener actual';
     }
 
     // Actualizar UI
     document.querySelector('.btn-add').textContent = '💾 Guardar Cambios';
-    document.getElementById('form-title').textContent = `Editar ${currentTab.slice(0, -1)}`; // "Editar producto", etc.
+    document.getElementById('form-title').textContent = `Editar ${currentTab.slice(0, -1)}`;
     document.getElementById('btn-cancel').style.display = 'inline-block';
 
     // Scroll al formulario
@@ -570,8 +645,46 @@ function cancelEdit() {
     document.querySelector('.btn-add').textContent = '➕ Agregar';
     document.getElementById('btn-cancel').style.display = 'none';
 
-    // Restaurar título original
+    // Restaurar títulos
     updateFormFields();
+}
+
+// Eliminar producto
+async function deleteProduct(id) {
+    if (!await showConfirm('¿Estás seguro de eliminar este elemento?')) {
+        return;
+    }
+
+    try {
+        switch (currentTab) {
+            case 'productos':
+                await window.api.deleteProducto(id);
+                productos = await window.api.getProductos();
+                break;
+            case 'bebidas':
+                await window.api.deleteBebida(id);
+                bebidas = await window.api.getBebidas();
+                break;
+            case 'extras':
+                await window.api.deleteExtra(id);
+                extras = await window.api.getExtras();
+                break;
+            case 'meseros':
+                await window.api.deleteMesero(id);
+                meseros = await window.api.getMeseros();
+                break;
+            case 'administradores':
+                await window.api.deleteAdministrador(id);
+                administradores = await window.api.getAdministradores();
+                break;
+        }
+
+        renderProducts();
+        showNotification('Elemento eliminado correctamente', 'success');
+    } catch (error) {
+        console.error('Error al eliminar:', error);
+        showNotification('Error al eliminar el elemento', 'error');
+    }
 }
 
 // Cargar configuración de la base de datos
@@ -586,12 +699,12 @@ async function loadSettings() {
         }
 
         document.getElementById('setting-name').value = settings.restaurantName || '';
-        document.getElementById('setting-address').value = settings.address;
-        document.getElementById('setting-message').value = settings.thankYouMessage;
-        document.getElementById('setting-tip').checked = settings.enableTip;
+        document.getElementById('setting-address').value = settings.address || '';
+        document.getElementById('setting-message').value = settings.thankYouMessage || '';
+        document.getElementById('setting-tip').checked = settings.enableTip !== false;
     } catch (error) {
         console.error('Error al cargar configuración:', error);
-        alert('Error al cargar la configuración');
+        showNotification('Error al cargar la configuración', 'error');
     }
 }
 
@@ -604,29 +717,178 @@ async function saveSettings() {
         enableTip: document.getElementById('setting-tip').checked
     };
 
-    const newPin = document.getElementById('setting-admin-pin').value.trim();
-
     if (!newSettings.restaurantName) {
-        alert('El nombre del restaurante es obligatorio');
+        showNotification('El nombre del restaurante es obligatorio', 'error');
         return;
     }
 
     try {
         await window.api.updateSettings(newSettings);
-
-        // Update PIN if provided
-        if (newPin) {
-            if (newPin.length !== 4 || !/^\d+$/.test(newPin)) {
-                alert('El PIN debe ser de 4 dígitos numéricos');
-                return;
-            }
-            await window.api.updateAdminPin(newPin);
-        }
-
-        alert('Configuración guardada correctamente');
-        if (newPin) document.getElementById('setting-admin-pin').value = '';
+        showNotification('Configuración guardada correctamente', 'success');
     } catch (error) {
         console.error('Error al guardar configuración:', error);
-        alert('Error al guardar la configuración');
+        showNotification('Error al guardar la configuración', 'error');
+    }
+}
+
+// Cargar tickets del día
+async function loadDailyTickets() {
+    try {
+        const tickets = await window.api.getDailyTickets(); // Sin argumento = hoy
+        renderDailyTickets(tickets);
+    } catch (error) {
+        console.error('Error al cargar tickets del día:', error);
+        showNotification('Error al cargar los tickets', 'error');
+    }
+}
+
+// Renderizar tabla de tickets
+function renderDailyTickets(tickets) {
+    const tbody = document.getElementById('daily-tickets-body');
+    tbody.innerHTML = '';
+
+    if (!tickets || tickets.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">No hay tickets registrados hoy</td></tr>';
+        return;
+    }
+
+    tickets.forEach(ticket => {
+        const tr = document.createElement('tr');
+
+        // Formatear hora
+        const fecha = new Date(ticket.fecha);
+        const hora = fecha.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+
+        // Estado con badges
+        let badgeClass = 'badge-default';
+        if (ticket.estado === 'pagado') badgeClass = 'badge-success';
+        else if (ticket.estado === 'cancelado') badgeClass = 'badge-danger';
+        else if (ticket.estado === 'activo') badgeClass = 'badge-active';
+
+        // Solicitud special formatting
+        const solicitudHtml = ticket.solicitudNuevoProducto
+            ? `<span style="color: var(--primary); font-weight: bold;">📝 ${ticket.solicitudNuevoProducto}</span>`
+            : '<span style="color: #666;">-</span>';
+
+        tr.innerHTML = `
+            <td>#${ticket.id}</td>
+            <td>${hora}</td>
+            <td>${ticket.mesero_nombre || 'N/A'}</td>
+            <td>${ticket.numero_mesa || 'N/A'}</td>
+            <td>$${ticket.total.toFixed(2)}</td>
+            <td>${solicitudHtml}</td>
+            <td><span class="badge ${badgeClass}">${ticket.estado.toUpperCase()}</span></td>
+            <td>
+                <button class="btn-action" onclick="openTicketModal(${ticket.id})">👁️ Ver / 🖨️</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+// Global para el ticket actual en el modal
+let currentModalTicket = null;
+
+// Abrir modal de ticket
+function openTicketModal(ticketId) {
+    window.api.getDailyTickets().then(tickets => {
+        const ticket = tickets.find(t => t.id === ticketId);
+        if (!ticket) return;
+
+        currentModalTicket = ticket;
+
+        document.getElementById('modal-ticket-id').textContent = ticket.id;
+        document.getElementById('modal-ticket-mesero').textContent = ticket.mesero_nombre || 'N/A';
+        document.getElementById('modal-ticket-mesa').textContent = ticket.numero_mesa || 'N/A';
+
+        const fecha = new Date(ticket.fecha);
+        document.getElementById('modal-ticket-hora').textContent = fecha.toLocaleTimeString('es-MX');
+
+        document.getElementById('modal-ticket-total').textContent = ticket.total.toFixed(2);
+
+        const tbody = document.getElementById('modal-ticket-items');
+        tbody.innerHTML = '';
+
+        ticket.items.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${item.cantidad}</td>
+                <td>${item.nombre}</td>
+                <td>$${item.precio.toFixed(2)}</td>
+                <td>$${(item.precio * item.cantidad).toFixed(2)}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        document.getElementById('ticket-modal').style.display = 'flex';
+    });
+}
+
+function closeTicketModal() {
+    document.getElementById('ticket-modal').style.display = 'none';
+    currentModalTicket = null;
+}
+
+// Imprimir ticket actual
+async function printCurrentTicket() {
+    if (!currentModalTicket) return;
+    try {
+        await window.api.printTicket(currentModalTicket);
+    } catch (error) {
+        console.error('Error al imprimir:', error);
+        showNotification('Error al enviar la impresión', 'error');
+    }
+}
+
+// --- Custom Alerts System ---
+let confirmResolver = null;
+
+function showNotification(message, type = 'info') {
+    const modal = document.getElementById('alert-modal');
+    const title = document.getElementById('alert-title');
+    const msg = document.getElementById('alert-message');
+    const icon = document.getElementById('alert-icon');
+    const content = modal.querySelector('.modal-content');
+
+    msg.textContent = message;
+
+    if (type === 'error') {
+        title.textContent = 'Error';
+        title.style.color = '#f87171'; // red
+        icon.textContent = '❌';
+        content.style.borderColor = 'var(--danger)';
+    } else if (type === 'success') {
+        title.textContent = 'Éxito';
+        title.style.color = '#4ade80'; // green
+        icon.textContent = '✅';
+        content.style.borderColor = 'var(--success)';
+    } else {
+        title.textContent = 'Aviso';
+        title.style.color = 'var(--white)';
+        icon.textContent = '⚠️';
+        content.style.borderColor = 'var(--primary)';
+    }
+
+    modal.style.display = 'flex';
+}
+
+function closeAlertModal() {
+    document.getElementById('alert-modal').style.display = 'none';
+}
+
+function showConfirm(message) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('confirm-modal');
+        document.getElementById('confirm-message').textContent = message;
+        modal.style.display = 'flex';
+        confirmResolver = resolve;
+    });
+}
+
+function resolveConfirm(result) {
+    document.getElementById('confirm-modal').style.display = 'none';
+    if (confirmResolver) {
+        confirmResolver(result);
+        confirmResolver = null;
     }
 }

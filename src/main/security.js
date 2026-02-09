@@ -16,12 +16,12 @@ async function hashPin(pin) {
     if (!pin || typeof pin !== 'string') {
         throw new Error('PIN inválido');
     }
-    
+
     // Validar que sea un PIN de 4 dígitos
     if (!/^\d{4}$/.test(pin)) {
         throw new Error('PIN debe ser de 4 dígitos numéricos');
     }
-    
+
     return await bcrypt.hash(pin, SALT_ROUNDS);
 }
 
@@ -33,11 +33,15 @@ async function hashPin(pin) {
  */
 async function verifyPin(pin, hash) {
     if (!pin || !hash) {
+        console.log(`Security: Missing arg. Pin: '${pin}', Hash: '${hash}'`);
         return false;
     }
-    
+
     try {
-        return await bcrypt.compare(String(pin), hash);
+        console.log(`Security: Verifying '${pin}' against '${hash.substring(0, 10)}...'`);
+        const match = await bcrypt.compare(String(pin), hash);
+        console.log('Security: Match Result:', match);
+        return match;
     } catch (error) {
         console.error('Error verificando PIN:', error);
         return false;

@@ -1,0 +1,127 @@
+{
+  "data": {
+    "productos": [
+      {
+        "id": 7,
+        "nombre": "Arrachera",
+        "precio": 35,
+        "descripcion": "de la mejor calidad"
+      },
+      {
+        "id": 1,
+        "nombre": "Taco de Asada",
+        "precio": 25,
+        "descripcion": "Carne asada"
+      },
+      {
+        "id": 2,
+        "nombre": "Taco de Pastor",
+        "precio": 25,
+        "descripcion": "Pastor"
+      },
+      {
+        "id": 3,
+        "nombre": "Campechano",
+        "precio": 30,
+        "descripcion": "Asada y adobada"
+      },
+      {
+        "id": 4,
+        "nombre": "Tripa",
+        "precio": 30,
+        "descripcion": "Bien dorada"
+      },
+      {
+        "id": 5,
+        "nombre": "Chorizo",
+        "precio": 25,
+        "descripcion": "De la casa"
+      },
+      {
+        "id": 6,
+        "nombre": "Suadero",
+        "precio": 23,
+        "descripcion": "Jugoso"
+      }
+    ],
+    "bebidas": [
+      {
+        "id": 1,
+        "nombre": "Coca-Cola",
+        "precio": 20,
+        "tamano": "355ml"
+      },
+      {
+        "id": 2,
+        "nombre": "Agua Natural",
+        "precio": 15,
+        "tamano": "600ml"
+      },
+      {
+        "id": 3,
+        "nombre": "Boing",
+        "precio": 18,
+        "tamano": "500ml"
+      },
+      {
+        "id": 4,
+        "nombre": "Sidral Mundet",
+        "precio": 20,
+        "tamano": "355ml"
+      }
+    ],
+    "extras": [
+      {
+        "id": 1,
+        "nombre": "Guacamole",
+        "precio": 15
+      },
+      {
+        "id": 2,
+        "nombre": "Queso",
+        "precio": 10
+      }
+    ],
+    "meseros": [
+      {
+        "id": 1,
+        "nombre": "Juan",
+        "pin": "$2a$10$Yqck/si1KpOCYnLIt6lkL3gu43/s"
+      }
+    ],
+    "administradores": [
+      {
+        "id": 1,
+        "nombre": "Administrador Principal",
+        "pin": "$2a$10$JK1xOK9Xii2ULNCY5VvXau0/uZkrTviCG0Bf6aYUe/9iooaMocH1q",
+        "esPrincipal": true
+      }
+    ],
+    "tickets": []
+  },
+  "nextIds": {
+    "productos": 8,
+    "bebidas": 5,
+    "extras": 3,
+    "meseros": 2,
+    "administradores": 2,
+    "tickets": 1
+  },
+  "adminPin": null,
+  "settings": {
+    "restaurantName": "TAQUERÍA EL SABOR",
+    "address": "Dirección no configurada",
+    "contactInfo": "",
+    "thankYouMessage": "¡Gracias por su preferencia!",
+    "footerMessage": "",
+    "enableTip": true
+  },
+  "statsCache": {
+    "dashboard": null,
+    "admin": null
+  },
+  "saveTimeout": null,
+  "isDirty": false,
+  "isClientMode": false,
+  "serverUrl": null
+}

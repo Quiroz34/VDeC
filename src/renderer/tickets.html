@@ -36,7 +36,7 @@
                 <label for="filter-estado">Estado:</label>
                 <select id="filter-estado">
                     <option value="activo">Activos</option>
-                    <option value="pagado">Pagados</option>
+                    <option value="cerrado">Cerrados</option>
                     <option value="todos">Todos</option>
                 </select>
             </div>
@@ -50,9 +50,17 @@
         <div class="main-content">
             <!-- Tickets Activos -->
             <div class="tickets-section">
-                <h2>Tickets Activos</h2>
+                <h2>Tickets</h2>
                 <div id="tickets-container" class="tickets-grid">
                     <!-- Tickets will be loaded here -->
+                </div>
+
+                <!-- Paginación -->
+                <div id="pagination-controls" class="pagination"
+                    style="display: none; justify-content: center; gap: 15px; margin-top: 20px; align-items: center;">
+                    <button id="btn-prev" class="btn btn-secondary" disabled>← Anterior</button>
+                    <span id="page-info" style="color: var(--text-secondary);">Página 1</span>
+                    <button id="btn-next" class="btn btn-secondary" disabled>Siguiente →</button>
                 </div>
             </div>
 
@@ -94,7 +102,7 @@
                 <div class="modal-footer">
                     <button class="btn btn-secondary" onclick="closeDetails()">Cerrar</button>
                     <button class="btn btn-success" id="btn-marcar-pagado" onclick="marcarComoPagado()">
-                        ✓ Marcar como Pagado
+                        ✓ Terminar Orden
                     </button>
                 </div>
             </div>

@@ -21,7 +21,11 @@
     "electron": "^27.0.0"
   },
   "dependencies": {
+    "address": "^2.0.3",
     "bcryptjs": "^2.4.3",
-    "chart.js": "^4.5.1"
+    "chart.js": "^4.5.1",
+    "cors": "^2.8.6",
+    "electron-fetch": "^1.9.1",
+    "express": "^5.2.1"
   }
 }

@@ -263,6 +263,16 @@
                     <h1>🌮 Sistema POS</h1>
                     <p id="restaurant-name-login">Cargando...</p>
                 </div>
+                <div class="login-footer">
+                    <p>Sistema de Punto de Venta v1.0</p>
+                    <button onclick="window.location.href='network_config.html'"
+                        style="background: transparent; border: 1px solid #ddd; padding: 5px 12px; border-radius: 20px; color: #666; font-size: 0.85rem; cursor: pointer; margin-top: 10px; display: flex; align-items: center; gap: 8px; transition: all 0.2s;">
+                        <span id="status-dot"
+                            style="width: 10px; height: 10px; border-radius: 50%; background-color: #ccc;"></span>
+                        <span id="connection-status">Verificando...</span>
+                    </button>
+                    <small style="display: block; margin-top: 5px; color: #999;">Clic para configurar</small>
+                </div>
 
                 <form class="login-form" id="login-form">
                     <div class="form-group">

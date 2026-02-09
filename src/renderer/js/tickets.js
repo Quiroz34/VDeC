@@ -48,44 +48,27 @@ async function loadTickets() {
             loadedTickets = await window.api.getTicketsActivos();
             document.getElementById('pagination-controls').style.display = 'none';
         } else if (filterEstado === 'todos') {
-            // Usar paginación para historial completo
-            const result = await window.api.getAllTickets(ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
-            loadedTickets = result.tickets;
-            totalTickets = result.total;
-            document.getElementById('pagination-controls').style.display = 'flex';
-            updatePaginationUI();
-        } else {
-            // Filtrado por estado específico (pagado/cancelado)
-            // Nota: Para simplificar, obtenemos todos y filtramos en memoria, 
-            // pero idealmente el backend debería soportar filtros + paginación.
-            // Por ahora, cargamos "todos" (paginados) y filtramos lo que llegue, 
-            // lo cual no es perfecto pero mejora el rendimiento vs cargar todo siempre.
-            const result = await window.api.getAllTickets(ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+            // Obtener TODOS los tickets sin filtro
+            const allResult = await window.api.getAllTickets();
 
-            // Si el usuario filtra por estado específico en historial, 
-            // la paginación podría comportarse raro (páginas vacías).
-            // Para esta iteración, asumiremos que "todos" es el caso principal de uso del historial.
-            // Si selecciona un estado específico, podríamos deshabilitar paginación o
-            // implementar filtrado en backend.
-            // Solución rápida: Cargar todo si filtra específicamente (fallback legado)
-            // O advertir que la paginación aplica sobre *todos* los tickets.
-
-            // Por simplicidad y robustez inmediata:
-            const allResult = await window.api.getAllTickets(); // Fallback para filtros específicos complejos
-            // Nota: Si el usuario tiene 10k tickets, esto sigue lento para filtros.
-            // Pero el caso de uso común es "Ver Historial" (Todos).
-
-            // Mejor enfoque: Usar la paginación solo para "todos" y "pagado" (que es el 99%).
-            // Si filtra, usamos el método paginado si coincide, si no, legacy.
-
-            if (Array.isArray(result)) { // Legacy support check
-                loadedTickets = result.filter(t => t.estado === filterEstado);
+            if (Array.isArray(allResult)) {
+                loadedTickets = allResult;
             } else {
-                // Si filtramos, traemos más para llenar la página
-                // TODO: Mejorar backend para filtrar + paginar.
-                // Por ahora, asumimos que "todos" es la vista principal.
-                loadedTickets = result.tickets.filter(t => t.estado === filterEstado);
+                loadedTickets = allResult.tickets || [];
             }
+
+            document.getElementById('pagination-controls').style.display = 'none';
+        } else {
+            // Filtrado por estado específico (cerrado, etc.)
+            const allResult = await window.api.getAllTickets();
+
+            if (Array.isArray(allResult)) {
+                loadedTickets = allResult.filter(t => t.estado === filterEstado);
+            } else {
+                loadedTickets = (allResult.tickets || []).filter(t => t.estado === filterEstado);
+            }
+
+            document.getElementById('pagination-controls').style.display = 'none';
         }
 
         // Filtrar por mesero si está seleccionado
@@ -155,9 +138,14 @@ function createTicketCard(ticket) {
     const fecha = new Date(ticket.fecha);
     const tiempoTranscurrido = getTimeElapsed(fecha);
 
-    const estadoBadge = ticket.estado === 'activo'
-        ? '<span class="badge badge-active">Activo</span>'
-        : '<span class="badge badge-paid">Pagado</span>';
+    let estadoBadge;
+    if (ticket.estado === 'activo') {
+        estadoBadge = '<span class="badge badge-active">Activo</span>';
+    } else if (ticket.estado === 'cerrado') {
+        estadoBadge = '<span class="badge badge-closed">Cerrado</span>';
+    } else {
+        estadoBadge = '<span class="badge badge-paid">Pagado</span>';
+    }
 
     card.innerHTML = `
         <div class="ticket-card-header">
@@ -171,12 +159,12 @@ function createTicketCard(ticket) {
             <p class="ticket-time">${tiempoTranscurrido}</p>
         </div>
         <div class="ticket-card-actions">
-            <button class="btn-small btn-info" onclick="showDetails(${ticket.id})">
+            <button class="btn-small btn-secondary" onclick="showDetails(${ticket.id})">
                 👁️ Ver Detalles
             </button>
             ${ticket.estado === 'activo' ? `
                 <button class="btn-small btn-success" onclick="quickPay(${ticket.id})">
-                    ✓ Pagar
+                    ✓ Terminar Orden
                 </button>
             ` : ''}
         </div>
@@ -209,7 +197,7 @@ async function showDetails(ticketId) {
     const btnPagar = document.getElementById('btn-marcar-pagado');
 
     // Mostrar/ocultar botón de pagar según estado
-    if (currentTicket.estado === 'pagado') {
+    if (currentTicket.estado === 'pagado' || currentTicket.estado === 'cerrado') {
         btnPagar.style.display = 'none';
     } else {
         btnPagar.style.display = 'block';
@@ -233,7 +221,10 @@ async function showDetails(ticketId) {
             </div>
             <div class="detail-row">
                 <strong>Estado:</strong> 
-                <span class="badge badge-${currentTicket.estado === 'activo' ? 'active' : 'paid'}">
+                <span class="badge badge-${currentTicket.estado === 'activo' ? 'active' :
+            currentTicket.estado === 'cerrado' ? 'closed' :
+                'paid'
+        }">
                     ${currentTicket.estado.charAt(0).toUpperCase() + currentTicket.estado.slice(1)}
                 </span>
             </div>
@@ -288,7 +279,7 @@ async function marcarComoPagado() {
 
 // Pago rápido
 async function quickPay(ticketId) {
-    if (confirm('¿Marcar este ticket como pagado?')) {
+    if (confirm('¿Terminar orden y marcar como pagada?')) {
         try {
             await window.api.updateTicketEstado(ticketId, 'pagado');
             await loadTickets();
@@ -296,6 +287,19 @@ async function quickPay(ticketId) {
             console.error('Error:', error);
             alert('Error al actualizar el ticket');
         }
+    }
+}
+
+// Imprimir ticket
+async function printTicket(ticketId) {
+    const ticket = tickets.find(t => t.id === ticketId);
+    if (!ticket) return;
+
+    try {
+        await window.api.printTicket(ticket);
+    } catch (error) {
+        console.error('Error al imprimir:', error);
+        alert('Error al imprimir ticket');
     }
 }
 

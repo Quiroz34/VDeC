@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuración de Red - TACOS</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <style>
+        .config-container {
+            max-width: 600px;
+            margin: 50px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+
+        .mode-description {
+            background: #f3f4f6;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+            color: #4b5563;
+        }
+    </style>
+</head>
+
+<body style="background: #f3f4f6;">
+    <div class="config-container">
+        <h2 style="text-align: center; margin-bottom: 20px;">📡 Configuración de Conexión</h2>
+
+        <div class="form-group">
+            <label>Modo de Operación</label>
+            <select id="mode-select" onchange="toggleServerFields()">
+                <option value="server">Servidor (Caja Principal)</option>
+                <option value="client">Cliente (Admin / Monitor Remoto)</option>
+            </select>
+        </div>
+
+        <div id="server-info" class="mode-description">
+            <strong>Modo Servidor:</strong> Esta computadora almacena todos los datos. Las otras computadoras se
+            conectarán a esta.
+            <div id="local-ip" style="margin-top: 10px; font-weight: bold; color: #2563eb;">Detectando IP...</div>
+        </div>
+
+        <div id="client-config" style="display: none;">
+            <div class="mode-description">
+                <strong>Modo Cliente:</strong> Esta computadora no guarda datos. Se conecta al Servidor para ver y
+                gestionar tickets.
+            </div>
+            <div class="form-group">
+                <label>IP del Servidor</label>
+                <input type="text" id="server-ip" placeholder="Ej: 192.168.1.100">
+                <small style="color: #666;">Ingresa la IP que aparece en la computadora principal.</small>
+            </div>
+        </div>
+
+        <div style="text-align: right; margin-top: 30px;">
+            <button class="btn btn-secondary" onclick="window.location.href='index.html'">Volver</button>
+            <button class="btn btn-primary" onclick="saveConfig()">Guardar y Reiniciar</button>
+        </div>
+    </div>
+
+    <script>
+        // Cargar configuración inicial
+        window.addEventListener('DOMContentLoaded', () => {
+            loadConfig();
+        });
+
+        async function loadConfig() {
+            try {
+                if (window.api && window.api.getLocalIp) {
+                    const ip = await window.api.getLocalIp();
+                    document.getElementById('local-ip').innerHTML = `Tu IP local es: <span style="font-size:1.2em; color:#000;">${ip}</span><br><small>(Usa esta IP en la computadora cliente)</small>`;
+                }
+            } catch (e) {
+                console.error('Error obteniendo IP:', e);
+            }
+        }
+
+        function toggleServerFields() {
+            const mode = document.getElementById('mode-select').value;
+            document.getElementById('client-config').style.display = mode === 'client' ? 'block' : 'none';
+            document.getElementById('server-info').style.display = mode === 'server' ? 'block' : 'none';
+        }
+
+        async function saveConfig() {
+            console.log('Intentando guardar configuración...');
+
+            if (!window.api) {
+                alert('Error CRÍTICO: La API del sistema no está cargada. Reinicia la aplicación.');
+                return;
+            }
+
+            const mode = document.getElementById('mode-select').value;
+            const serverIp = document.getElementById('server-ip').value;
+
+            if (mode === 'client' && !serverIp) {
+                alert('Debes ingresar la IP del servidor');
+                return;
+            }
+
+            const config = {
+                mode: mode,
+                serverIp: mode === 'client' ? serverIp : null
+            };
+
+            try {
+                const result = await window.api.saveNetworkConfig(config);
+                if (result.success) {
+                    if (confirm('Configuración guardada correctamente. La aplicación se reiniciará ahora.')) {
+                        await window.api.restartApp();
+                    }
+                } else {
+                    alert('Error al guardar: ' + result.error);
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Error al guardar configuración: ' + error.message);
+            }
+        }
+    </script>
+</body>
+
+</html>

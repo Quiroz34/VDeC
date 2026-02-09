@@ -1,0 +1,139 @@
+{
+  "data": {
+    "productos": [
+      {
+        "id": 1,
+        "nombre": "Taco de Asada",
+        "precio": 25,
+        "descripcion": "Recuperado"
+      },
+      {
+        "id": 2,
+        "nombre": "Carnitas estilo Michoacan",
+        "precio": 25,
+        "descripcion": "Recuperado"
+      },
+      {
+        "id": 3,
+        "nombre": "Papas Fritas",
+        "precio": 30,
+        "descripcion": "Recuperado"
+      },
+      {
+        "id": 4,
+        "nombre": "Frijoles Charros",
+        "precio": 30,
+        "descripcion": "Recuperado"
+      },
+      {
+        "id": 5,
+        "nombre": "Queso Fundido",
+        "precio": 40,
+        "descripcion": "Recuperado"
+      }
+    ],
+    "bebidas": [
+      {
+        "id": 1,
+        "nombre": "Jugo de Naranja",
+        "precio": 20,
+        "tamano": "Vaso grande"
+      },
+      {
+        "id": 2,
+        "nombre": "Cerveza",
+        "precio": 35,
+        "tamano": "Botella 355ml"
+      },
+      {
+        "id": 3,
+        "nombre": "Agua de Jamaica",
+        "precio": 15,
+        "tamano": "Vaso"
+      },
+      {
+        "id": 4,
+        "nombre": "Agua de Horchata",
+        "precio": 15,
+        "tamano": "Vaso"
+      },
+      {
+        "id": 5,
+        "nombre": "Agua Natural",
+        "precio": 15,
+        "tamano": "Botella 600ml"
+      },
+      {
+        "id": 6,
+        "nombre": "Coca-Cola",
+        "precio": 20,
+        "tamano": "Lata 355ml"
+      }
+    ],
+    "extras": [
+      {
+        "id": 1,
+        "nombre": "Tortillas Extra",
+        "precio": 5
+      },
+      {
+        "id": 2,
+        "nombre": "Salsa Extra",
+        "precio": 5
+      },
+      {
+        "id": 3,
+        "nombre": "Guacamole",
+        "precio": 15
+      }
+    ],
+    "meseros": [
+      {
+        "id": 1,
+        "nombre": "Ana Martínez",
+        "pin": "$2a$10$SKlC4Mv5BL3GlyRuqUZBHOqxFvo3PKZNgs6DfyOWSBmkrJkzFhWZK"
+      },
+      {
+        "id": 2,
+        "nombre": "Carlos Rodríguez",
+        "pin": "$2a$10$SKlC4Mv5BL3GlyRuqUZBHOqxFvo3PKZNgs6DfyOWSBmkrJkzFhWZK"
+      },
+      {
+        "id": 3,
+        "nombre": "María González",
+        "pin": "$2a$10$SKlC4Mv5BL3GlyRuqUZBHOqxFvo3PKZNgs6DfyOWSBmkrJkzFhWZK"
+      },
+      {
+        "id": 4,
+        "nombre": "Juan Pérez",
+        "pin": "$2a$10$SKlC4Mv5BL3GlyRuqUZBHOqxFvo3PKZNgs6DfyOWSBmkrJkzFhWZK"
+      }
+    ],
+    "tickets": [],
+    "administradores": [
+      {
+        "id": 1,
+        "nombre": "Administrador Principal",
+        "pin": "$2a$10$rlJfnBaA9dAy.d2d8mWlVeH0BK1oYJW9OEaqUdui1YArSu4muuZde",
+        "esPrincipal": true
+      }
+    ]
+  },
+  "nextIds": {
+    "productos": 6,
+    "bebidas": 7,
+    "extras": 4,
+    "meseros": 5,
+    "administradores": 2,
+    "tickets": 1
+  },
+  "adminPin": null,
+  "settings": {
+    "restaurantName": "TAQUERÍA EL SABOR",
+    "address": "Dirección recuperada",
+    "contactInfo": "",
+    "thankYouMessage": "¡Gracias por su preferencia!",
+    "footerMessage": "Datos restaurados del sistema",
+    "enableTip": true
+  }
+}

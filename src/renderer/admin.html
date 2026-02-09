@@ -20,12 +20,14 @@
 
         <!-- Tabs -->
         <div class="tabs">
-            <button class="tab-btn active" data-tab="productos">🍽️ Productos</button>
+            <button class="tab-btn active" data-tab="daily-tickets">🎫 Tickets del Día</button>
+            <button class="tab-btn" data-tab="productos">🍽️ Productos</button>
             <button class="tab-btn" data-tab="bebidas">🥤 Bebidas</button>
             <button class="tab-btn" data-tab="extras">🍟 Extras</button>
             <button class="tab-btn" data-tab="meseros">👤 Meseros</button>
             <button class="tab-btn" data-tab="stats">📊 Estadísticas</button>
             <button class="tab-btn" data-tab="settings">🛠️ Configuración</button>
+            <button class="tab-btn" data-tab="administradores">👮 Admins</button>
         </div>
 
         <!-- Add Form -->
@@ -107,6 +109,28 @@
             </div>
         </div>
 
+        <!-- Daily Tickets Section (Initially Hidden) -->
+        <div id="daily-tickets-section" style="display: none;">
+            <div class="tickets-table-container">
+                <table class="tickets-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Hora</th>
+                            <th>Mesero</th>
+                            <th>Mesa</th>
+                            <th>Total</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="daily-tickets-body">
+                        <!-- Rows will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <!-- Settings Section (Initially Hidden) -->
         <div id="settings-section" style="display: none;">
             <div class="settings-form">
@@ -135,6 +159,43 @@
                 <div class="settings-actions">
                     <button class="btn btn-primary" onclick="saveSettings()">💾 Guardar Configuración</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ticket Details Modal -->
+    <div id="ticket-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Detalle del Ticket #<span id="modal-ticket-id"></span></h2>
+                <button class="close-modal" onclick="closeTicketModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="ticket-info">
+                    <p><strong>Mesero:</strong> <span id="modal-ticket-mesero"></span></p>
+                    <p><strong>Mesa:</strong> <span id="modal-ticket-mesa"></span></p>
+                    <p><strong>Hora:</strong> <span id="modal-ticket-hora"></span></p>
+                </div>
+                <table class="ticket-items-table">
+                    <thead>
+                        <tr>
+                            <th>Cant.</th>
+                            <th>Producto</th>
+                            <th>Precio</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modal-ticket-items">
+                        <!-- Items -->
+                    </tbody>
+                </table>
+                <div class="ticket-total">
+                    <h3>Total: $<span id="modal-ticket-total"></span></h3>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="printCurrentTicket()">🖨️ Imprimir Ticket</button>
+                <button class="btn btn-secondary" onclick="closeTicketModal()">Cerrar</button>
             </div>
         </div>
     </div>
@@ -168,6 +229,33 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="js/admin.js"></script>
     <script src="js/inactivity.js"></script>
+    <!-- Custom Alert Modal -->
+    <div id="alert-modal" class="modal" style="display: none; z-index: 10001;">
+        <div class="modal-content" style="max-width: 400px; text-align: center; border: 1px solid var(--primary);">
+            <div class="modal-body">
+                <div id="alert-icon" style="font-size: 3rem; margin-bottom: 10px;">⚠️</div>
+                <h3 id="alert-title" style="margin-bottom: 10px; color: var(--white);">Aviso</h3>
+                <p id="alert-message" style="color: rgba(255,255,255,0.8); margin-bottom: 20px;">Mensaje</p>
+                <button class="btn btn-primary" onclick="closeAlertModal()">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Confirm Modal -->
+    <div id="confirm-modal" class="modal" style="display: none; z-index: 10001;">
+        <div class="modal-content" style="max-width: 400px; text-align: center; border: 1px solid var(--accent);">
+            <div class="modal-body">
+                <div style="font-size: 3rem; margin-bottom: 10px;">❓</div>
+                <h3 style="margin-bottom: 10px; color: var(--white);">Confirmación</h3>
+                <p id="confirm-message" style="color: rgba(255,255,255,0.8); margin-bottom: 20px;">¿Estás seguro?</p>
+                <div style="display: flex; justify-content: center; gap: 10px;">
+                    <button class="btn btn-secondary" onclick="resolveConfirm(false)">Cancelar</button>
+                    <button class="btn btn-primary" onclick="resolveConfirm(true)">Confirmar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </body>
 
 </html>

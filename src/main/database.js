@@ -4,13 +4,16 @@ const { app } = require('electron');
 const { hashPin, verifyPin, isHashed } = require('./security');
 
 class DatabaseManager {
-    constructor() {
-        this.dbPath = path.join(app.getPath('userData'), 'restaurante.json');
+    constructor(customPath = null) {
+        this.dbPath = customPath || path.join(app.getPath('userData'), 'restaurante.json');
+        console.log('!!! DATABASE PATH (VERIFY THIS):', this.dbPath);
+
         this.data = {
             productos: [],
             bebidas: [],
             extras: [],
             meseros: [],
+            administradores: [],
             tickets: []
         };
         this.nextIds = {
@@ -18,13 +21,16 @@ class DatabaseManager {
             bebidas: 1,
             extras: 1,
             meseros: 1,
+            administradores: 1,
             tickets: 1
         };
-        this.adminPin = null; // Will be hashed
+        this.adminPin = null; // Deprecated, kept for migration check
         this.settings = {
             restaurantName: 'TAQUERÍA EL SABOR',
             address: 'Dirección no configurada',
+            contactInfo: '', // Nuevo: Teléfono / Contacto
             thankYouMessage: '¡Gracias por su preferencia!',
+            footerMessage: '', // Nuevo: Mensaje Extra (Wifi, etc)
             enableTip: true
         };
         this.statsCache = {
@@ -33,6 +39,27 @@ class DatabaseManager {
         };
         this.saveTimeout = null;
         this.isDirty = false;
+
+        // Configuración de RED
+        this.isClientMode = false;
+        this.serverUrl = null;
+        this.loadNetworkConfig();
+    }
+
+    loadNetworkConfig() {
+        const configPath = path.join(app.getPath('userData'), 'network_config.json');
+        if (fs.existsSync(configPath)) {
+            try {
+                const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+                if (config.mode === 'client' && config.serverIp) {
+                    this.isClientMode = true;
+                    this.serverUrl = `http://${config.serverIp}:3000`;
+                    console.log(`MODO CLIENTE ACTIVADO: Conectando a ${this.serverUrl}`);
+                }
+            } catch (e) {
+                console.error('Error cargando config de red:', e);
+            }
+        }
     }
 
     async initDatabase() {
@@ -43,11 +70,22 @@ class DatabaseManager {
                 const loaded = JSON.parse(fileData);
                 this.data = loaded.data || this.data;
                 this.nextIds = loaded.nextIds || this.nextIds;
-                this.adminPin = loaded.adminPin;
+                this.adminPin = loaded.adminPin; // Load legacy pin
                 this.settings = loaded.settings || this.settings;
 
-                // Migrar PINs si no están hasheados
-                await this.migratePinsIfNeeded();
+                console.log('✅ Database loaded successfully');
+                console.log('📦 Productos:', this.data.productos?.length || 0);
+                console.log('🥤 Bebidas:', this.data.bebidas?.length || 0);
+                console.log('🍟 Extras:', this.data.extras?.length || 0);
+
+                // Ensure administradores array exists
+                if (!this.data.administradores) {
+                    this.data.administradores = [];
+                    this.nextIds.administradores = 1;
+                }
+
+                // Migrar PINs si no están hasheados y migrar Admin único a lista
+                await this.migrateData();
             } catch (error) {
                 console.error('Error loading database:', error);
 
@@ -72,30 +110,80 @@ class DatabaseManager {
         await this._saveToDisk(); // Initial save
     }
 
-    // ... (omitting unchanged methods for brevity if possible, but replace_file_content needs context) ...
+    async insertSampleData() {
+        console.log('Inserting sample data...');
+        // Productos Base
+        this.data.productos = [
+            { id: 1, nombre: 'Taco de Asada', precio: 25, descripcion: 'Carne asada' },
+            { id: 2, nombre: 'Taco de Pastor', precio: 25, descripcion: 'Pastor' }
+        ];
+        this.data.bebidas = [
+            { id: 1, nombre: 'Coca-Cola', precio: 20, tamano: '355ml' },
+            { id: 2, nombre: 'Agua Natural', precio: 15, tamano: '600ml' }
+        ];
+        this.data.extras = [
+            { id: 1, nombre: 'Guacamole', precio: 15 }
+        ];
 
-    async migratePinsIfNeeded() {
-        // ... (keeping implementation, just ensuring initDatabase calls _saveToDisk)
+        // Admin default
+        const hash = await hashPin('1234');
+        this.data.administradores = [{
+            id: 1,
+            nombre: 'Admin Principal',
+            pin: hash,
+            esPrincipal: true
+        }];
+
+        this.nextIds = {
+            productos: 3,
+            bebidas: 3,
+            extras: 2,
+            meseros: 1,
+            administradores: 2,
+            tickets: 1
+        };
+
+        this.isDirty = true;
+    }
+
+    async migrateData() {
         let needsSave = false;
-        // ... implementation ...
-        if (this.adminPin && !isHashed(this.adminPin)) {
-            this.adminPin = await hashPin(this.adminPin);
-            needsSave = true;
-        } else if (!this.adminPin) {
-            this.adminPin = await hashPin('1234');
+
+        // 1. Migrar Admin Único -> Array de Administradores
+        if (!this.data.administradores || this.data.administradores.length === 0) {
+            console.log('Migrando administrador único a sistema multi-admin...');
+            let initialPin = this.adminPin;
+
+            // Si no hay PIN antiguo, usar default 1234
+            if (!initialPin) {
+                initialPin = await hashPin('1234');
+            } else if (!isHashed(initialPin)) {
+                initialPin = await hashPin(initialPin);
+            }
+
+            this.data.administradores = [{
+                id: this.nextIds.administradores++,
+                nombre: 'Administrador Principal',
+                pin: initialPin,
+                esPrincipal: true // Flag para evitar borrar el último
+            }];
+            this.adminPin = null; // Clear legacy
             needsSave = true;
         }
 
-        for (let mesero of this.data.meseros) {
-            if (mesero.pin && !isHashed(mesero.pin)) {
-                mesero.pin = await hashPin(mesero.pin);
-                needsSave = true;
+        // 2. Migrar Meseros (Hashes)
+        if (this.data.meseros) {
+            for (let mesero of this.data.meseros) {
+                if (mesero.pin && !isHashed(mesero.pin)) {
+                    mesero.pin = await hashPin(mesero.pin);
+                    needsSave = true;
+                }
             }
         }
 
         if (needsSave) {
             await this._saveToDisk();
-            console.log('Migración de PINs completada');
+            console.log('Migración de datos completada');
         }
     }
 
@@ -198,11 +286,105 @@ class DatabaseManager {
         return true;
     }
 
+    async validateAdminPin(pin) {
+        try {
+            const admins = this.data.administradores || [];
+            if (admins.length === 0) return { success: false, error: 'No hay administradores configurados' };
+
+            for (const admin of admins) {
+                const match = await verifyPin(pin, admin.pin);
+                if (match) {
+                    return { success: true, admin: { id: admin.id, nombre: admin.nombre } };
+                }
+            }
+            return { success: false, error: 'PIN de administrador incorrecto' };
+        } catch (e) {
+            console.error('Error validando PIN admin:', e);
+            return { success: false, error: e.message };
+        }
+    }
+
+
+
     // Función helper para inferir tipo de producto
     inferProductType(nombre) {
         const esBebida = this.data.bebidas.some(b => b.nombre === nombre);
         const esExtra = this.data.extras.some(e => e.nombre === nombre);
         return esBebida ? 'bebidas' : (esExtra ? 'extras' : 'tacos');
+    }
+
+    // CRUD Administradores
+    getAdministradores() {
+        return (this.data.administradores || []).map(a => ({
+            id: a.id,
+            nombre: a.nombre,
+            esPrincipal: !!a.esPrincipal
+        })).sort((a, b) => a.nombre.localeCompare(b.nombre));
+    }
+
+    async addAdministrador(admin) {
+        try {
+            if (!admin.nombre || !admin.pin) throw new Error('Datos incompletos');
+            if (!/^\d{4}$/.test(admin.pin)) throw new Error('PIN debe ser de 4 dígitos');
+
+            const hashedPin = await hashPin(admin.pin);
+
+            const newAdmin = {
+                id: this.nextIds.administradores++,
+                nombre: admin.nombre.trim(),
+                pin: hashedPin,
+                esPrincipal: false
+            };
+
+            if (!this.data.administradores) this.data.administradores = [];
+            this.data.administradores.push(newAdmin);
+            await this.save();
+            return { success: true, id: newAdmin.id };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    }
+
+    async updateAdministrador(id, admin) {
+        try {
+            const index = this.data.administradores.findIndex(a => a.id === parseInt(id));
+            if (index === -1) return { success: false, error: 'Administrador no encontrado' };
+
+            const currentAdmin = this.data.administradores[index];
+            const updated = {
+                ...currentAdmin,
+                nombre: admin.nombre.trim()
+            };
+
+            if (admin.pin && admin.pin.trim() !== '') {
+                if (!/^\d{4}$/.test(admin.pin)) throw new Error('PIN debe ser de 4 dígitos');
+                updated.pin = await hashPin(admin.pin);
+            }
+
+            this.data.administradores[index] = updated;
+            await this.save();
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    }
+
+    async deleteAdministrador(id) {
+        try {
+            const index = this.data.administradores.findIndex(a => a.id === parseInt(id));
+            if (index === -1) return { success: false, error: 'Administrador no encontrado' };
+
+            // Evitar borrar el último administrador
+            if (this.data.administradores.length <= 1) {
+                return { success: false, error: 'No puedes eliminar al último administrador' };
+            }
+
+            this.data.administradores.splice(index, 1);
+            await this.save();
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
     }
 
     // CRUD Productos
@@ -462,37 +644,14 @@ class DatabaseManager {
         }
     }
 
-    // Validar PIN de administrador
-    async validateAdminPin(pin) {
-        try {
-            const isValid = await verifyPin(pin, this.adminPin);
-            if (isValid) {
-                return { success: true };
-            }
-            return { success: false, error: 'PIN de administrador incorrecto' };
-        } catch (error) {
-            console.error('Error validando PIN admin:', error);
-            return { success: false, error: 'Error de validación' };
-        }
-    }
-
-    // Actualizar PIN de administrador
-    async updateAdminPin(newPin) {
-        try {
-            if (!/^\d{4}$/.test(newPin)) {
-                return { success: false, error: 'PIN debe ser de 4 dígitos numéricos' };
-            }
-            this.adminPin = await hashPin(newPin);
-            await this.save();
-            return { success: true };
-        } catch (error) {
-            return { success: false, error: error.message };
-        }
-    }
-
     // Configuración
     getSettings() {
-        return this.settings;
+        return this.settings || {
+            restaurantName: 'Mi Restaurante',
+            address: '',
+            thankYouMessage: '¡Gracias por su preferencia!',
+            enableTip: true
+        };
     }
 
     async updateSettings(newSettings) {
@@ -533,6 +692,7 @@ class DatabaseManager {
                 existingTicket.fecha = new Date().toISOString();
                 existingTicket.mesero_id = parseInt(ticket.meseroId);
                 existingTicket.mesero_nombre = ticket.meseroNombre;
+                if (ticket.solicitudNuevoProducto) existingTicket.solicitudNuevoProducto = ticket.solicitudNuevoProducto; // Update if present
 
                 await this.save();
                 return { success: true, id: existingTicket.id, ticket: existingTicket };
@@ -546,7 +706,8 @@ class DatabaseManager {
                     items: ticket.items,
                     total: parseFloat(ticket.total),
                     estado: 'activo', // activo, pagado, cancelado
-                    fecha: new Date().toISOString()
+                    fecha: new Date().toISOString(),
+                    solicitudNuevoProducto: ticket.solicitudNuevoProducto || '' // Nuevo campo
                 };
                 this.data.tickets.push(newTicket);
                 await this.save();
@@ -566,7 +727,24 @@ class DatabaseManager {
     }
 
     // Obtener todos los tickets (con paginación opcional)
-    getAllTickets(limit = null, offset = 0) {
+    async getAllTickets(limit = null, offset = 0) {
+        if (this.isClientMode && this.serverUrl) {
+            try {
+                // MODO CLIENTE: Pedir a servidor
+                const fetch = require('electron-fetch').default || global.fetch;
+                let url = `${this.serverUrl}/api/tickets`;
+                if (limit !== null) url += `?limit=${limit}&offset=${offset}`;
+
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Error de red');
+                return await response.json();
+            } catch (e) {
+                console.error('Error fetching remote tickets:', e);
+                return []; // Fallback vacío o error
+            }
+        }
+
+        // MODO LOCAL
         const sorted = this.data.tickets.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
         if (limit !== null) {
             const start = offset;
@@ -583,6 +761,22 @@ class DatabaseManager {
     getTicketsByMesero(meseroId) {
         return this.data.tickets
             .filter(t => t.mesero_id === parseInt(meseroId))
+            .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+    }
+
+    // Obtener tickets de un día específico
+    getDailyTickets(dateStr) {
+        // dateStr debe ser formato YYYY-MM-DD
+        // Si no se provee, usar hoy
+        const targetDate = dateStr ? new Date(dateStr) : new Date();
+        const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
+        const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
+
+        return this.data.tickets
+            .filter(t => {
+                const ticketDate = new Date(t.fecha);
+                return ticketDate >= startOfDay && ticketDate <= endOfDay;
+            })
             .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
     }
 
@@ -637,7 +831,7 @@ class DatabaseManager {
             return this.statsCache.dashboard;
         }
 
-        const ticketsPagados = this.data.tickets.filter(t => t.estado === 'pagado');
+        const ticketsPagados = this.data.tickets.filter(t => t.estado === 'pagado' || t.estado === 'cerrado');
         // ... (rest of logic) ...
 
         // 1. Contar productos vendidos por categoría
@@ -699,7 +893,7 @@ class DatabaseManager {
             return this.statsCache.admin;
         }
 
-        const ticketsPagados = this.data.tickets.filter(t => t.estado === 'pagado');
+        const ticketsPagados = this.data.tickets.filter(t => t.estado === 'pagado' || t.estado === 'cerrado');
         const now = new Date();
         const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
@@ -792,7 +986,7 @@ class DatabaseManager {
 
         const tickets = this.data.tickets.filter(t => {
             const ticketFecha = new Date(t.fecha);
-            return t.estado === 'pagado' &&
+            return (t.estado === 'pagado' || t.estado === 'cerrado') &&
                 ticketFecha >= inicioDia &&
                 ticketFecha <= finDia;
         });
@@ -856,7 +1050,6 @@ class DatabaseManager {
             }
 
             ticket.estado = 'cerrado';
-            ticket.cerrado = true;
             ticket.fecha_cierre = new Date().toISOString();
 
             // Marcar todos los items como entregados
@@ -903,9 +1096,7 @@ class DatabaseManager {
         }
     }
 
-    async close() {
-        await this.save();
-    }
+
 }
 
 module.exports = DatabaseManager;

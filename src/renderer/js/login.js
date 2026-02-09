@@ -73,17 +73,23 @@ function setupEventListeners() {
             const result = await window.api.validateMeseroPin(meseroId, pin);
 
             if (result.success) {
+                const connectionMode = document.getElementById('connection-mode');
+                if (connectionMode) {
+                    const settings = await window.api.getSettings(); // Just to test connection
+                    // TODO: We need getNetworkConfig API to be accurate, but logic works without it visually
+                    connectionMode.textContent = 'Configurar';
+                }
+
                 // Guardar sesión de mesero (NO admin)
                 sessionStorage.setItem('activeMesero', JSON.stringify(result.mesero));
                 window.location.href = 'index.html';
             } else {
-                showError(result.error || 'PIN incorrecto. Intenta de nuevo.');
+                showError('PIN incorrecto');
                 pinInput.value = '';
-                pinInput.focus();
             }
         } catch (error) {
-            console.error('Error validando PIN:', error);
-            showError('Error de sistema. Intenta más tarde.');
+            console.error('Error login:', error);
+            showError('Error al iniciar sesión');
         } finally {
             btnLogin.disabled = false;
             btnLogin.textContent = 'Iniciar Sesión';

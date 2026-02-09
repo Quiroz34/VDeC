@@ -125,6 +125,14 @@
               </div>
             </div>
 
+            <!-- Solicitud Nuevo Producto -->
+            <div class="info-group" style="margin-bottom: 15px; border-top: 1px dashed #ccc; padding-top: 10px;">
+              <label for="solicitud-producto" style="font-size: 0.9rem; color: var(--primary);">📝 ¿Cliente pidió algo
+                nuevo?</label>
+              <input type="text" id="solicitud-producto" placeholder="Escribe aquí el producto..."
+                style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px;">
+            </div>
+
             <div class="ticket-actions">
               <button class="btn btn-clear" id="btn-clear">
                 🗑️ Limpiar
@@ -248,12 +256,14 @@
         }
 
         try {
+          console.log('Sending admin PIN to backend:', pin);
           const result = await window.api.validateAdminPin(pin);
+          console.log('Backend response:', result);
           if (result.success) {
             sessionStorage.setItem('isAdminAuthenticated', 'true');
             window.location.href = 'admin.html';
           } else {
-            error.textContent = '⛔ PIN incorrecto';
+            error.textContent = '⛔ PIN incorrecto (' + (result.error || 'Generico') + ')';
             error.style.display = 'block';
             document.getElementById('admin-pin-input-modal').value = '';
             document.getElementById('admin-pin-input-modal').focus();

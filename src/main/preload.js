@@ -32,7 +32,12 @@ contextBridge.exposeInMainWorld('api', {
     deleteMesero: (id) => ipcRenderer.invoke('delete-mesero', id),
     validateMeseroPin: (meseroId, pin) => ipcRenderer.invoke('validate-mesero-pin', meseroId, pin),
     validateAdminPin: (pin) => ipcRenderer.invoke('validate-admin-pin', pin),
-    updateAdminPin: (newPin) => ipcRenderer.invoke('update-admin-pin', newPin),
+
+    // Administradores
+    getAdministradores: () => ipcRenderer.invoke('get-administradores'),
+    addAdministrador: (admin) => ipcRenderer.invoke('add-administrador', admin),
+    updateAdministrador: (id, admin) => ipcRenderer.invoke('update-administrador', id, admin),
+    deleteAdministrador: (id) => ipcRenderer.invoke('delete-administrador', id),
 
     // Configuración
     getSettings: () => ipcRenderer.invoke('get-settings'),
@@ -44,6 +49,7 @@ contextBridge.exposeInMainWorld('api', {
     getTicketsActivos: () => ipcRenderer.invoke('get-tickets-activos'),
     getAllTickets: () => ipcRenderer.invoke('get-all-tickets'),
     getTicketsByMesero: (meseroId) => ipcRenderer.invoke('get-tickets-by-mesero', meseroId),
+    getDailyTickets: (dateStr) => ipcRenderer.invoke('get-daily-tickets', dateStr),
     updateTicketEstado: (ticketId, estado) => ipcRenderer.invoke('update-ticket-estado', ticketId, estado),
     getReporteMesero: (meseroId, fechaInicio, fechaFin) => ipcRenderer.invoke('get-reporte-mesero', meseroId, fechaInicio, fechaFin),
     getReporteDia: (fecha) => ipcRenderer.invoke('get-reporte-dia', fecha),
@@ -52,5 +58,11 @@ contextBridge.exposeInMainWorld('api', {
     addItemsToTicket: (ticketId, items) => ipcRenderer.invoke('add-items-to-ticket', ticketId, items),
 
     // Impresión
-    printTicket: (ticketData) => ipcRenderer.invoke('print-ticket', ticketData)
+    printTicket: (ticketData) => ipcRenderer.invoke('print-ticket', ticketData),
+
+    // Red
+    saveNetworkConfig: (config) => ipcRenderer.invoke('save-network-config', config),
+    getLocalIp: () => ipcRenderer.invoke('get-local-ip'),
+    restartApp: () => ipcRenderer.invoke('restart-app'),
+    checkConnection: () => ipcRenderer.invoke('check-connection')
 });

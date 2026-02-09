@@ -27,10 +27,37 @@ function createWindow() {
   }
 }
 
+const { startServer } = require('./server'); // Importar servidor
+
 app.whenReady().then(async () => {
   // Inicializar base de datos (ahora es async)
   db = new DatabaseManager();
   await db.initDatabase();
+
+  // Iniciar Servidor API (Solo si no estamos en modo cliente)
+  const configPath = path.join(app.getPath('userData'), 'network_config.json');
+  let shouldStartServer = true;
+
+  if (require('fs').existsSync(configPath)) {
+    try {
+      const config = JSON.parse(require('fs').readFileSync(configPath, 'utf8'));
+      if (config.mode === 'client') {
+        shouldStartServer = false;
+        console.log('Modo cliente detectado. No se iniciará el servidor API.');
+      }
+    } catch (err) {
+      console.error('Error leyendo configuración de red:', err);
+    }
+  }
+
+  if (shouldStartServer) {
+    try {
+      startServer(db);
+      console.log('Servidor API iniciado correctamente');
+    } catch (err) {
+      console.error('Error al iniciar servidor API:', err);
+    }
+  }
 
   // Crear ventana
   createWindow();
@@ -40,6 +67,40 @@ app.whenReady().then(async () => {
       createWindow();
     }
   });
+});
+
+// IPC Handler para configuración de red
+ipcMain.handle('save-network-config', async (event, config) => {
+  try {
+    const configPath = path.join(app.getPath('userData'), 'network_config.json');
+    require('fs').writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+    // Si cambiamos a modo servidor, iniciamos server si no estaba
+    if (config.mode === 'server') {
+      try {
+        startServer(db);
+      } catch (e) { }
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error guardando config red:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('get-local-ip', () => {
+  try {
+    const address = require('address');
+    return address.ip(); // Retorna IPv4 LAN (ej. 192.168.1.50)
+  } catch (e) {
+    return 'No detectada';
+  }
+});
+
+ipcMain.handle('restart-app', () => {
+  app.relaunch();
+  app.exit(0);
 });
 
 app.on('window-all-closed', async () => {
@@ -215,31 +276,65 @@ ipcMain.handle('validate-admin-pin', async (event, pin) => {
   }
 });
 
-ipcMain.handle('update-admin-pin', async (event, newPin) => {
+// IPC Handlers para administradores
+ipcMain.handle('get-administradores', async () => {
   try {
-    return await db.updateAdminPin(newPin);
+    return db.getAdministradores();
   } catch (error) {
-    console.error('Error en update-admin-pin:', error);
+    console.error('Error en get-administradores:', error);
+    return [];
+  }
+});
+
+ipcMain.handle('add-administrador', async (event, admin) => {
+  try {
+    return await db.addAdministrador(admin);
+  } catch (error) {
+    console.error('Error en add-administrador:', error);
     return { success: false, error: error.message };
   }
 });
 
+ipcMain.handle('update-administrador', async (event, id, admin) => {
+  try {
+    return await db.updateAdministrador(id, admin);
+  } catch (error) {
+    console.error('Error en update-administrador:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('delete-administrador', async (event, id) => {
+  try {
+    return await db.deleteAdministrador(id);
+  } catch (error) {
+    console.error('Error en delete-administrador:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+
+
 // IPC Handler para guardar ticket
-ipcMain.handle('save-ticket', (event, ticket) => {
-  return db.saveTicket(ticket);
+ipcMain.handle('save-ticket', async (event, ticket) => {
+  return await db.saveTicket(ticket);
 });
 
 // IPC Handlers para gestión de tickets
-ipcMain.handle('get-tickets-activos', () => {
-  return db.getTicketsActivos();
+ipcMain.handle('get-tickets-activos', async () => {
+  return await db.getTicketsActivos();
 });
 
-ipcMain.handle('get-all-tickets', (event, limit = null, offset = 0) => {
-  return db.getAllTickets(limit, offset);
+ipcMain.handle('get-all-tickets', async (event, limit = null, offset = 0) => {
+  return await db.getAllTickets(limit, offset);
 });
 
-ipcMain.handle('get-tickets-by-mesero', (event, meseroId) => {
-  return db.getTicketsByMesero(meseroId);
+ipcMain.handle('get-tickets-by-mesero', async (event, meseroId) => {
+  return await db.getTicketsByMesero(meseroId);
+});
+
+ipcMain.handle('get-daily-tickets', async (event, dateStr) => {
+  return db.getDailyTickets(dateStr);
 });
 
 ipcMain.handle('update-ticket-estado', (event, ticketId, estado) => {
@@ -253,6 +348,21 @@ ipcMain.handle('get-reporte-mesero', (event, meseroId, fechaInicio, fechaFin) =>
 ipcMain.handle('get-reporte-dia', (event, fecha) => {
   return db.getReporteVentasDia(fecha);
 });
+
+// IPC Handlers para configuración
+ipcMain.handle('get-settings', () => {
+  return db.getSettings();
+});
+
+ipcMain.handle('update-settings', (event, settings) => {
+  return db.updateSettings(settings);
+});
+
+// IPC Handlers para estadísticas
+ipcMain.handle('get-admin-stats', () => {
+  return db.getAdminStats();
+});
+
 
 ipcMain.handle('get-dashboard-stats', () => {
   return db.getDashboardStats();
@@ -295,17 +405,6 @@ ipcMain.handle('add-items-to-ticket', async (event, ticketId, items) => {
   }
 });
 
-ipcMain.handle('get-admin-stats', () => {
-  return db.getAdminStats();
-});
-
-ipcMain.handle('get-settings', () => {
-  return db.getSettings();
-});
-
-ipcMain.handle('update-settings', (event, settings) => {
-  return db.updateSettings(settings);
-});
 
 // IPC Handler para imprimir ticket
 ipcMain.handle('print-ticket', async (event, ticketData) => {
@@ -368,6 +467,9 @@ function generateTicketHTML(data, settings) {
       <p style="text-align: center; margin-top: 5px;">Firma / Propina</p>
     </div>
   ` : '';
+
+  const contactHTML = settings.contactInfo ? `<p>📞 ${escapeHtml(settings.contactInfo)}</p>` : '';
+  const footerMsgHTML = settings.footerMessage ? `<p style="margin-top:10px; font-weight:bold;">${escapeHtml(settings.footerMessage)}</p>` : '';
 
   return `
     <!DOCTYPE html>
@@ -435,6 +537,7 @@ function generateTicketHTML(data, settings) {
       <div class="header">
         <h1>${escapeHtml(settings.restaurantName)}</h1>
         <p>${escapeHtml(settings.address)}</p>
+        ${contactHTML}
       </div>
       
       <div class="info">
@@ -464,6 +567,7 @@ function generateTicketHTML(data, settings) {
       
       <div class="footer">
         <p>${escapeHtml(settings.thankYouMessage)}</p>
+        ${footerMsgHTML}
       </div>
     </body>
     </html>

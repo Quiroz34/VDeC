@@ -1,0 +1,131 @@
+{
+  "data": {
+    "productos": [
+      {
+        "id": 1,
+        "nombre": "Taco de Asada",
+        "precio": 25.0,
+        "descripcion": "Carne asada con cebolla y cilantro"
+      },
+      {
+        "id": 2,
+        "nombre": "Taco de Pastor",
+        "precio": 25.0,
+        "descripcion": "Carne al pastor con piña"
+      },
+      {
+        "id": 3,
+        "nombre": "Taco de Pollo",
+        "precio": 22.0,
+        "descripcion": "Pollo marinado a la parrilla"
+      },
+      {
+        "id": 4,
+        "nombre": "Taco de Carnitas",
+        "precio": 25.0,
+        "descripcion": "Carnitas estilo Michoacán"
+      },
+      {
+        "id": 5,
+        "nombre": "Taco de Chorizo",
+        "precio": 23.0,
+        "descripcion": "Chorizo artesanal"
+      },
+      {
+        "id": 6,
+        "nombre": "Taco de Lengua",
+        "precio": 30.0,
+        "descripcion": "Lengua de res en salsa verde"
+      }
+    ],
+    "bebidas": [
+      {
+        "id": 1,
+        "nombre": "Coca-Cola",
+        "precio": 20.0,
+        "tamano": "Lata 355ml"
+      },
+      {
+        "id": 2,
+        "nombre": "Agua Natural",
+        "precio": 15.0,
+        "tamano": "Botella 600ml"
+      },
+      {
+        "id": 3,
+        "nombre": "Agua de Horchata",
+        "precio": 25.0,
+        "tamano": "Vaso grande"
+      },
+      {
+        "id": 4,
+        "nombre": "Agua de Jamaica",
+        "precio": 25.0,
+        "tamano": "Vaso grande"
+      },
+      {
+        "id": 5,
+        "nombre": "Cerveza",
+        "precio": 35.0,
+        "tamano": "Botella 355ml"
+      },
+      {
+        "id": 6,
+        "nombre": "Jugo de Naranja",
+        "precio": 30.0,
+        "tamano": "Vaso grande"
+      }
+    ],
+    "extras": [
+      {
+        "id": 1,
+        "nombre": "Guacamole",
+        "precio": 15.0
+      },
+      {
+        "id": 2,
+        "nombre": "Queso Fundido",
+        "precio": 20.0
+      },
+      {
+        "id": 3,
+        "nombre": "Frijoles Charros",
+        "precio": 25.0
+      },
+      {
+        "id": 4,
+        "nombre": "Papas Fritas",
+        "precio": 30.0
+      },
+      {
+        "id": 5,
+        "nombre": "Salsa Extra",
+        "precio": 5.0
+      },
+      {
+        "id": 6,
+        "nombre": "Tortillas Extra",
+        "precio": 10.0
+      }
+    ],
+    "meseros": [
+      {
+        "id": 1,
+        "nombre": "Juan Pérez"
+      },
+      {
+        "id": 2,
+        "nombre": "María González"
+      },
+      {
+        "id": 3,
+        "nombre": "Carlos Rodríguez"
+      },
+      {
+        "id": 4,
+        "nombre": "Ana Martínez"
+      }
+    ],
+    "tickets": []
+  }
+}

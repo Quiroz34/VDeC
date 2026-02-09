@@ -1,5 +1,5 @@
 // Estado de la aplicación
-let currentTab = 'tacos';
+let currentTab = 'productos';
 let productos = [];
 let bebidas = [];
 let extras = [];
@@ -9,13 +9,18 @@ let activeMesero = null;
 
 // Inicializar aplicación
 document.addEventListener('DOMContentLoaded', async () => {
-    // BUG FIX: Asegurar que el input de mesa inicie editable
+    // BUG FIX: Asegurar que el input de mesa inicie editable y limpio
+    // Si hay una sesión de edición pendiente, se limpiará
+    sessionStorage.removeItem('addingToTicket');
+
+
     const mesaInput = document.getElementById('mesa');
     if (mesaInput) {
         mesaInput.readOnly = false;
-        mesaInput.style.background = '';
-        mesaInput.style.cursor = '';
+        mesaInput.disabled = false;
+        mesaInput.style.cursor = 'text';
     }
+
 
     // Verificar sesión activa
     checkSession();
@@ -99,15 +104,21 @@ function renderProducts() {
 
     let items = [];
     switch (currentTab) {
-        case 'tacos':
-            items = productos;
+        case 'productos':
+            items = productos || [];
             break;
         case 'bebidas':
-            items = bebidas;
+            items = bebidas || [];
             break;
         case 'extras':
-            items = extras;
+            items = extras || [];
             break;
+    }
+
+    // If current tab has no items, show a message
+    if (items.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #888; padding: 40px;">No hay productos en esta categoría</p>';
+        return;
     }
 
     const fragment = document.createDocumentFragment();
@@ -124,7 +135,7 @@ function createProductCard(item) {
     card.className = 'product-card';
 
     let description = '';
-    if (currentTab === 'tacos' && item.descripcion) {
+    if (currentTab === 'productos' && item.descripcion) {
         description = `<p>${item.descripcion}</p>`;
     } else if (currentTab === 'bebidas' && item.tamano) {
         description = `<p>${item.tamano}</p>`;
@@ -277,10 +288,13 @@ async function initiateTicketGeneration() {
         return;
     }
 
+    const solicitud = document.getElementById('solicitud-producto').value.trim(); // Capturar solicitud
+
     pendingTicketData = {
         numeroMesa: parseInt(mesa),
         meseroId: activeMesero.id,
         meseroNombre: activeMesero.nombre,
+        solicitudNuevoProducto: solicitud, // Enviar al backend
         items: cart.map(item => ({
             nombre: item.nombre,
             precio: item.precio,
@@ -310,6 +324,11 @@ async function showPreview(ticketData) {
             </tr>
         `).join('');
 
+        // Include solicitud in preview if exists
+        const solicitudHTML = ticketData.solicitudNuevoProducto
+            ? `<div style="margin: 10px 0; padding: 5px; border: 1px dashed #000; font-weight: bold;">📝 SOLICITUD: ${ticketData.solicitudNuevoProducto}</div>`
+            : '';
+
         previewDiv.innerHTML = `
             <div class="preview-ticket">
                 <div class="preview-header">
@@ -336,6 +355,8 @@ async function showPreview(ticketData) {
                     </tbody>
                 </table>
                 
+                ${solicitudHTML}
+
                 <div class="preview-total">
                     <strong>TOTAL: $${ticketData.total.toFixed(2)}</strong>
                 </div>
@@ -409,14 +430,6 @@ async function confirmGenerate() {
                 const cancelBtn = document.getElementById('btn-cancel-edit');
                 if (cancelBtn) cancelBtn.remove();
 
-                // Imprimir solo los nuevos items
-                /* REMOVED: Printing is now manual
-                await window.api.printTicket({
-                    ...result.ticket,
-                    items: pendingTicketData.items,
-                    esAdicional: true
-                });
-                */
                 alert(`Productos agregados al ticket #${addingToTicket}`);
             }
         } else {
@@ -424,8 +437,6 @@ async function confirmGenerate() {
             result = await window.api.saveTicket(pendingTicketData);
 
             if (result.success && result.ticket) {
-                // Imprimir el ticket completo
-                // await window.api.printTicket(result.ticket); // REMOVED: Printing is now manual
                 alert('Ticket generado correctamente');
             }
         }
@@ -434,14 +445,33 @@ async function confirmGenerate() {
             // Cerrar modal
             closePreview();
 
-            // Limpiar formulario
+            // Limpiar formulario y input de solicitud
             cart = [];
             document.getElementById('mesa').value = '';
+            document.getElementById('solicitud-producto').value = ''; // Limpiar solicitud
             renderCart();
             updateTotal();
 
             // Actualizar lista de tickets abiertos
             await refreshOpenTickets();
+
+            // FIX: Asegurar que el input de mesa se desbloquee y se limpie
+            const mesaInputForce = document.getElementById('mesa');
+            if (mesaInputForce) {
+                mesaInputForce.value = '';
+                mesaInputForce.readOnly = false;
+                mesaInputForce.style.cursor = 'text';
+                mesaInputForce.disabled = false;
+                setTimeout(() => mesaInputForce.focus(), 100);
+            }
+
+            // SEGURIDAD: Verificar que el menú de productos siga visible
+            const prodContainer = document.getElementById('products-container');
+            if (!prodContainer || prodContainer.children.length === 0) {
+                console.warn('Menú de productos vacío detectado, renderizando...');
+                if (!currentTab) currentTab = 'productos';
+                renderProducts();
+            }
         } else {
             throw new Error(result.error || 'No se pudo procesar el ticket');
         }
@@ -533,22 +563,33 @@ async function refreshOpenTickets() {
     if (!container) return;
 
     try {
-        const tickets = await window.api.getTickets();
-        // Filtrar solo tickets abiertos (estado = 'abierto' o recientes del día)
-        const today = new Date().toDateString();
-        const openTickets = tickets.filter(t => {
-            const ticketDate = new Date(t.fecha).toDateString();
-            return t.estado === 'abierto' || (ticketDate === today && !t.cerrado);
-        });
-
-        if (openTickets.length === 0) {
-            container.innerHTML = '<p class="empty-message" style="text-align: center; color: #666; padding: 20px;">No hay tickets abiertos</p>';
+        // Get current waiter from session
+        const activeMeseroData = sessionStorage.getItem('activeMesero');
+        if (!activeMeseroData) {
+            container.innerHTML = '<p class="empty-message" style="text-align: center; color: #ef4444; padding: 20px;">No hay mesero activo. Por favor selecciona un mesero.</p>';
             return;
         }
 
-        container.innerHTML = openTickets.map(ticket => renderOpenTicketCard(ticket)).join('');
+        const activeMesero = JSON.parse(activeMeseroData);
+        const currentWaiterId = activeMesero.id;
+
+        const tickets = await window.api.getTickets();
+        // Mostrar solo tickets del mesero actual del día
+        const today = new Date().toDateString();
+        const myTickets = tickets.filter(t => {
+            const ticketDate = new Date(t.fecha).toDateString();
+            // Filter by today AND by current waiter
+            return ticketDate === today && t.mesero_id === currentWaiterId;
+        });
+
+        if (myTickets.length === 0) {
+            container.innerHTML = '<p class="empty-message" style="text-align: center; color: #666; padding: 20px;">No tienes tickets hoy</p>';
+            return;
+        }
+
+        container.innerHTML = myTickets.map(ticket => renderOpenTicketCard(ticket)).join('');
     } catch (error) {
-        console.error('Error cargando tickets abiertos:', error);
+        console.error('Error cargando tickets:', error);
         container.innerHTML = '<p class="empty-message" style="text-align: center; color: #ef4444; padding: 20px;">Error al cargar tickets</p>';
     }
 }
@@ -557,6 +598,7 @@ async function refreshOpenTickets() {
 function renderOpenTicketCard(ticket) {
     const ticketId = ticket.id || generateTicketId();
     const items = ticket.items || [];
+    const isClosed = ticket.estado === 'cerrado';
 
     // Generar HTML de items con estado de entrega
     const itemsHtml = items.map((item, index) => {
@@ -570,7 +612,7 @@ function renderOpenTicketCard(ticket) {
                 <span>${item.cantidad}x ${item.nombre}</span>
                 <div style="display: flex; gap: 8px; align-items: center;">
                     <span style="font-size: 0.85rem;">$${(item.precio * item.cantidad).toFixed(2)}</span>
-                    ${!isDelivered ? `
+                    ${!isDelivered && !isClosed ? `
                         <button onclick="markItemDelivered(${ticket.id}, ${index})" 
                                 style="background: #22c55e; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.75rem;"
                                 title="Marcar como entregado">
@@ -582,12 +624,22 @@ function renderOpenTicketCard(ticket) {
         `;
     }).join('');
 
+    // Estilo para tickets cerrados
+    const cardStyle = isClosed
+        ? 'background: rgba(100, 116, 139, 0.3); border-radius: 12px; padding: 15px; margin-bottom: 12px; border: 1px solid rgba(100, 116, 139, 0.5); opacity: 0.7;'
+        : 'background: var(--bg-dark); border-radius: 12px; padding: 15px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.1);';
+
+    const statusBadge = isClosed
+        ? '<span style="background: #64748b; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; margin-left: 10px;">✓ TERMINADO</span>'
+        : '';
+
     return `
-        <div class="open-ticket-card" style="background: var(--bg-dark); border-radius: 12px; padding: 15px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.1);">
+        <div class="open-ticket-card" style="${cardStyle}">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
                 <div>
                     <span style="font-weight: bold; color: var(--primary); font-size: 1.1rem;">🎫 #${ticketId}</span>
-                    <span style="color: #94a3b8; font-size: 0.85rem; margin-left: 10px;">Mesa ${ticket.mesa}</span>
+                    <span style="color: #94a3b8; font-size: 0.85rem; margin-left: 10px;">Mesa ${ticket.numero_mesa || ticket.mesa || '?'}</span>
+                    ${statusBadge}
                 </div>
                 <span style="color: #94a3b8; font-size: 0.8rem;">${formatTime(ticket.fecha)}</span>
             </div>
@@ -597,18 +649,16 @@ function renderOpenTicketCard(ticket) {
             <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
                 <span style="font-weight: bold; color: white;">Total: $${ticket.total.toFixed(2)}</span>
                 <div style="display: flex; gap: 8px;">
-                    <button onclick="addMoreToTicket(${ticket.id}, ${ticket.mesa})" 
-                            style="background: var(--primary); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">
-                        ➕ Agregar
-                    </button>
-                    <button onclick="printTicketReceipt(${ticket.id})" 
-                            style="background: #3b82f6; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;" title="Imprimir Ticket">
-                        🖨️
-                    </button>
-                    <button onclick="closeTicket(${ticket.id})" 
-                            style="background: #22c55e; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">
-                        ✓ Cerrar
-                    </button>
+                    ${!isClosed ? `
+                        <button onclick="addMoreToTicket(${ticket.id}, ${ticket.numero_mesa || ticket.mesa})" 
+                                style="background: var(--primary); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">
+                            ➕ Agregar
+                        </button>
+                        <button onclick="closeTicket(${ticket.id})" 
+                                style="background: #22c55e; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;" title="Marcar como terminado">
+                            ✓ Terminar Orden
+                        </button>
+                    ` : '<span style="color: #64748b; font-size: 0.85rem;">Orden completada</span>'}
                 </div>
             </div>
         </div>
@@ -683,10 +733,12 @@ function cancelEditTicket() {
 
     // Restaurar input de mesa
     const mesaInput = document.getElementById('mesa');
-    mesaInput.value = '';
-    mesaInput.readOnly = false;
-    mesaInput.style.background = '';
-    mesaInput.style.cursor = '';
+    if (mesaInput) {
+        mesaInput.value = '';
+        mesaInput.readOnly = false;
+        mesaInput.style.cursor = 'text';
+        mesaInput.disabled = false;
+    }
 
     // Restaurar título
     const ticketHeader = document.querySelector('.ticket-section .ticket-header h2');
@@ -706,7 +758,7 @@ function cancelEditTicket() {
 
 // Cerrar ticket
 async function closeTicket(ticketId) {
-    if (!confirm('¿Cerrar este ticket? Se marcará como completado.')) return;
+    if (!confirm('¿Terminar esta orden? Se marcará como pagada y completada.')) return;
 
     try {
         const result = await window.api.closeTicket(ticketId);
